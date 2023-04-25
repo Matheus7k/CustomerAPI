@@ -1,4 +1,5 @@
-﻿using CustomerAPI.Models;
+﻿using System.Net;
+using CustomerAPI.Models;
 using CustomerAPI.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -10,10 +11,14 @@ namespace CustomerAPI.Controllers
     public class CustomerController : ControllerBase
     {
         private readonly CustomerService _customerService;
+        private readonly AddressService _addressService;
+        private readonly CityService _cityService;
 
-        public CustomerController(CustomerService customerService)
+        public CustomerController(CustomerService customerService, AddressService addressService, CityService cityService)
         {
             _customerService = customerService;
+            _addressService = addressService;
+            _cityService = cityService;
         }
 
         [HttpGet(Name = "Get Customer")]
@@ -32,9 +37,47 @@ namespace CustomerAPI.Controllers
         [HttpPost(Name = "Create Customer")]
         public ActionResult<Customer> Create(Customer customer)
         {
-            _customerService.Create(customer);
+            if(customer.Address.Id != "")
+            {
+                var address = _addressService.Get(customer.Address.Id);
 
-            return customer;
+                customer.Address = address;
+
+                _customerService.Create(customer);
+
+                return CreatedAtRoute("Get Customer Id", new { id = customer.Id }, customer);
+            }
+            else
+            {
+                if (customer.Address.City.Id != "")
+                {
+                    var city = _cityService.Get(customer.Address.City.Id);
+
+                    customer.Address.City = city;
+
+                    var newAddress = _addressService.Create(customer.Address);
+
+                    customer.Address = newAddress;
+
+                    _customerService.Create(customer);
+
+                    return CreatedAtRoute("Get Customer Id", new { id = customer.Id }, customer);
+                }
+                else
+                {             
+                    var newCity = _cityService.Create(customer.Address.City);
+
+                    customer.Address.City = newCity;
+
+                    var newAddress = _addressService.Create(customer.Address);
+
+                    customer.Address = newAddress;
+
+                    _customerService.Create(customer);
+
+                    return CreatedAtRoute("Get Customer Id", new { id = customer.Id }, customer);
+                }
+            }
         }
 
         [HttpPut("{id:length(24)}")]
